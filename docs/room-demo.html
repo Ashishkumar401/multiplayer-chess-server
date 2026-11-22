@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><title>Chess server · room relay</title>
+<style>body{font:18px system-ui;color:#19322a;background:#eaf2ec;margin:6vh auto;max-width:720px;padding:28px}main{background:white;border:1px solid #becfc1;border-radius:14px;padding:32px}h1{margin-top:0}li{padding:.5em 0}button{font:inherit;padding:.5em .9em}code{color:#305843}</style>
+<main><h1>Chess room relay</h1><p>Two Socket.IO clients connect to the local chess server. Send a move from White and watch Black receive it.</p><p>Server &nbsp; <code>localhost:4000</code></p><button disabled>Send e2 → e4</button><ol aria-live="polite"></ol></main>
+<script src="http://localhost:4000/socket.io/socket.io.js"></script>
+<script>
+const log = message => {
+  const item = document.createElement('li');
+  item.textContent = message;
+  document.querySelector('ol').appendChild(item);
+};
+const room = 'demo-' + crypto.randomUUID();
+const send = document.querySelector('button');
+let joined = new Set();
+const players = ['White', 'Black'].map(name => {
+  const socket = io('http://localhost:4000', {forceNew: true});
+  socket.on('connect', () => socket.emit('join-room', room));
+  socket.on('joined-room', () => {
+    if (!joined.has(name)) log(name + ' joined the room.');
+    joined.add(name);
+    send.disabled = joined.size !== 2;
+  });
+  socket.on('move', move => log(name + ' received ' + move.from + ' → ' + move.to + '.'));
+  socket.on('disconnect', () => {joined.delete(name); send.disabled = true; log(name + ' disconnected.');});
+  socket.on('connect_error', () => { if (!document.querySelector('li')) log('Waiting for the server on port 4000.'); });
+  return socket;
+});
+send.onclick = () => {
+  players[0].emit('move', {from: 'e2', to: 'e4'}, room);
+  log('White sent e2 → e4.');
+};
+</script></html>
